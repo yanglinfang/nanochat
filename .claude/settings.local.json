@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv --version)",
+      "Bash(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader)",
+      "Bash(docker images --format \"table {{.Repository}}\\\\t{{.Tag}}\\\\t{{.Size}}\")",
+      "Bash(docker compose -f docker/docker-compose.yml build train)",
+      "Bash(docker compose -f docker/docker-compose.yml run --rm train python -m nanochat.dataset -n 8)"
+    ]
+  }
+}

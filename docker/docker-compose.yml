@@ -1,0 +1,66 @@
+# nanochat Learning Lab — Docker Compose
+#
+# USAGE:
+#   docker compose -f docker/docker-compose.yml build train
+#   docker compose -f docker/docker-compose.yml run train bash runs/run3080ti.sh
+#   docker compose -f docker/docker-compose.yml run train python -m scripts.base_train --help
+#
+# INTERACTIVE (recommended for learning):
+#   docker compose -f docker/docker-compose.yml run train bash
+#   > python -m scripts.base_train --depth=6 --device-batch-size=2 --num-iterations=100
+
+services:
+  # GPU training — RTX 3080 Ti (12GB VRAM)
+  train:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: nanochat-train:latest
+    ipc: host
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONPATH=/app
+      - NANOCHAT_BASE_DIR=/app/.cache/nanochat
+      - HF_HOME=/app/.cache/huggingface
+      - WANDB_MODE=disabled
+    volumes:
+      - ../:/app
+      - nanochat-cache:/app/.cache
+    working_dir: /app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Chat with trained model via web UI
+  chat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: nanochat-train:latest
+    ipc: host
+    ports:
+      - "7860:7860"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONPATH=/app
+      - NANOCHAT_BASE_DIR=/app/.cache/nanochat
+    volumes:
+      - ../:/app
+      - nanochat-cache:/app/.cache
+    working_dir: /app
+    command: python -m scripts.chat_web
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  nanochat-cache:
+    name: nanochat-cache
