@@ -37,10 +37,11 @@ def adamw_step_fused(
     """
     # Weight decay (decoupled, applied before the update)
     p.mul_(1 - lr_t * wd_t)
-    # Update running averages (lerp_ is cleaner and fuses well)
-    exp_avg.lerp_(grad, 1 - beta1_t)
-    exp_avg_sq.lerp_(grad.square(), 1 - beta2_t)
-    # Bias corrections
+    # Update running averages — cast only lerp_ weight for PyTorch 2.6 compat
+    # (PyTorch 2.6 requires lerp_ weight dtype to match self dtype)
+    exp_avg.lerp_(grad, (1 - beta1_t).to(p.dtype))
+    exp_avg_sq.lerp_(grad.square(), (1 - beta2_t).to(p.dtype))
+    # Bias corrections (keep in float32 for precision)
     bias1 = 1 - beta1_t ** step_t
     bias2 = 1 - beta2_t ** step_t
     # Compute update and apply
@@ -106,10 +107,9 @@ def muon_step_fused(
     Some of the constants are 0-D CPU tensors to avoid recompilation when values change.
     """
 
-    # Nesterov momentum
-    momentum = momentum_t.to(stacked_grads.dtype)
-    momentum_buffer.lerp_(stacked_grads, 1 - momentum)
-    g = stacked_grads.lerp_(momentum_buffer, momentum)
+    # Nesterov momentum — cast only lerp_ weight for PyTorch 2.6 compat
+    momentum_buffer.lerp_(stacked_grads, (1 - momentum_t).to(momentum_buffer.dtype))
+    g = stacked_grads.lerp_(momentum_buffer, momentum_t.to(stacked_grads.dtype))
 
     # Polar express
     X = g.bfloat16()
@@ -127,12 +127,13 @@ def muon_step_fused(
     g = X
 
     # Variance reduction
-    beta2 = beta2_t.to(g.dtype)
     v_mean = g.float().square().mean(dim=red_dim, keepdim=True)
     red_dim_size = g.size(red_dim)
     v_norm_sq = v_mean.sum(dim=(-2, -1), keepdim=True) * red_dim_size
     v_norm = v_norm_sq.sqrt()
-    second_momentum_buffer.lerp_(v_mean.to(dtype=second_momentum_buffer.dtype), 1 - beta2)
+    # Cast only lerp_ end and weight for PyTorch 2.6 compat
+    sm_dtype = second_momentum_buffer.dtype
+    second_momentum_buffer.lerp_(v_mean.to(dtype=sm_dtype), (1 - beta2_t).to(sm_dtype))
     step_size = second_momentum_buffer.clamp_min(1e-10).rsqrt()
     scaled_sq_sum = (v_mean * red_dim_size) * step_size.float().square()
     v_norm_new = scaled_sq_sum.sum(dim=(-2, -1), keepdim=True).sqrt()

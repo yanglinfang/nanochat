@@ -426,6 +426,10 @@ class GPT(nn.Module):
             # training: given the targets, compute and return the loss
             # TODO experiment with chunked cross-entropy?
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1, reduction=loss_reduction)
+            # Guard against NaN from all-masked batches (0/0 in mean reduction)
+            # This can happen during SFT when a micro-batch has all targets = -1
+            if loss_reduction == 'mean':
+                loss = loss.nan_to_num(nan=0.0)
             return loss
         else:
             # inference: just return the logits directly

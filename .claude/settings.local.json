@@ -5,7 +5,14 @@
       "Bash(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader)",
       "Bash(docker images --format \"table {{.Repository}}\\\\t{{.Tag}}\\\\t{{.Size}}\")",
       "Bash(docker compose -f docker/docker-compose.yml build train)",
-      "Bash(docker compose -f docker/docker-compose.yml run --rm train python -m nanochat.dataset -n 8)"
+      "Bash(docker compose -f docker/docker-compose.yml run --rm train python -m nanochat.dataset -n 8)",
+      "Bash(nvidia-smi)",
+      "Bash(docker compose -f docker/docker-compose.yml build --no-cache train)",
+      "Bash(docker compose -f docker/docker-compose.yml run --rm train python -m scripts.tok_train --max-chars=2000000000)",
+      "Bash(docker compose -f docker/docker-compose.yml run --rm train python -m scripts.tok_eval)",
+      "Bash(docker compose -f docker/docker-compose.yml run --rm -e WANDB_MODE=disabled train python -m scripts.base_train --depth=6 --head-dim=64 --window-pattern=L --max-seq-len=512 --device-batch-size=2 --total-batch-size=4096 --eval-every=100 --eval-tokens=524288 --core-metric-every=-1 --sample-every=200 --num-iterations=2000 --run=dummy)",
+      "Bash(docker stop 82133df80008)",
+      "Bash(docker compose -f d:/Users/Lin/Documents/Git/nanochat/docker/docker-compose.yml run train bash -c ':*)"
     ]
   }
 }
